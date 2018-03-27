@@ -22,11 +22,7 @@ ui <- fluidPage(titlePanel("BC Liquor Store prices"),
                       choices = c("BEER", "REFRESHMENT", "SPIRITS", "WINE"),
                       selected = "WINE"
                     ),
-                    selectInput(
-                      "countryInput",
-                      "Country",
-                      choices = c("CANADA", "FRANCE", "ITALY")
-                    )
+                    uiOutput("countryOutput")
                   ),
                   mainPanel(h2(textOutput("elemnum")),
                             plotOutput("coolplot"),
@@ -38,41 +34,34 @@ ui <- fluidPage(titlePanel("BC Liquor Store prices"),
 
 server <- function(input, output) {
   
-  output$elemnum <- renderText({
-    filtered <-
-      bcl %>%
+  output$countryOutput <- renderUI({
+    selectInput("countryInput", "Country",
+                sort(unique(bcl$Country)),
+                selected = "CANADA")
+  })
+  
+  # Create reactive data input once for reuse in render* funcs below
+  filtered <- reactive({
+    bcl %>%
       filter(
         Price >= input$priceInput[1],
         Price <= input$priceInput[2],
         Type == input$typeInput,
         Country == input$countryInput
       )
-    paste("Elemszám", dim(filtered)[1])
+  })
+  
+  output$elemnum <- renderText({
+    paste("Elemszám", dim(filtered())[1])
   })
   
   output$coolplot <- renderPlot({
-    filtered <-
-      bcl %>%
-      filter(
-        Price >= input$priceInput[1],
-        Price <= input$priceInput[2],
-        Type == input$typeInput,
-        Country == input$countryInput
-      )
-    ggplot(filtered, aes(Alcohol_Content)) +
+    ggplot(filtered(), aes(Alcohol_Content)) +
       geom_histogram()
   })
   
   output$results <- renderTable({
-    filtered <-
-      bcl %>%
-      filter(
-        Price >= input$priceInput[1],
-        Price <= input$priceInput[2],
-        Type == input$typeInput,
-        Country == input$countryInput
-      )
-    filtered
+    filtered()
   })
 }
 
