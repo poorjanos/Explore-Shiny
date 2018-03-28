@@ -1,31 +1,17 @@
 library(shiny)
+library(here)
 library(ggplot2)
 library(dplyr)
+library(scales)
 
-bcl <- read.csv("bcl-data.csv", stringsAsFactors = FALSE)
+t_telj_napi <- read.csv(here("Data", "Telj_napi.csv"), stringsAsFactors = FALSE)
 
-ui <- fluidPage(titlePanel("BC Liquor Store prices"),
+ui <- fluidPage(titlePanel("Napi teljesítmények alakulása"),
                 sidebarLayout(
                   sidebarPanel(
-                    sliderInput(
-                      "priceInput",
-                      "Price",
-                      min = 0,
-                      max = 100,
-                      value = c(10, 90),
-                       pre = "$"
-                    )
-                    ,
-                    radioButtons(
-                      "typeInput",
-                      "Product type",
-                      choices = c("BEER", "REFRESHMENT", "SPIRITS", "WINE"),
-                      selected = "WINE"
-                    ),
-                    uiOutput("countryOutput")
+                    uiOutput("userOutput")
                   ),
-                  mainPanel(h2(textOutput("elemnum")),
-                            plotOutput("coolplot"),
+                  mainPanel(plotOutput("performance_plot"),
                             br(),
                             br(),
                             tableOutput("results"))
@@ -34,32 +20,39 @@ ui <- fluidPage(titlePanel("BC Liquor Store prices"),
 
 server <- function(input, output) {
   
-  output$countryOutput <- renderUI({
-    selectInput("countryInput", "Country",
-                sort(unique(bcl$Country)),
-                selected = "CANADA")
+  # Render selectInput
+  output$userOutput <- renderUI({
+    selectInput("userInput", "Dolgozó",
+                sort(unique(t_telj_napi$NEV)),
+                selected = "Dancsecs Júlia")
   })
   
   # Create reactive data input once for reuse in render* funcs below
   filtered <- reactive({
-    bcl %>%
+    if (is.null(input$userInput)) {
+      return(NULL)
+    }   
+  
+    t_telj_napi %>%
       filter(
-        Price >= input$priceInput[1],
-        Price <= input$priceInput[2],
-        Type == input$typeInput,
-        Country == input$countryInput
+        NEV == input$userInput
       )
   })
   
-  output$elemnum <- renderText({
-    paste("Elemszám", dim(filtered())[1])
+  # Render plot
+  output$performance_plot <- renderPlot({
+    if (is.null(filtered())) {
+      return()
+    }
+    
+    ggplot(filtered(), aes(DATUM, TELJ_MENNYISEGI_ALAP, group = 1)) +
+      geom_line() +
+      geom_point() +
+      theme(axis.text.x = element_text(angle = 90)) +
+      scale_y_continuous(labels = percent) 
   })
   
-  output$coolplot <- renderPlot({
-    ggplot(filtered(), aes(Alcohol_Content)) +
-      geom_histogram()
-  })
-  
+  # Render table
   output$results <- renderTable({
     filtered()
   })
